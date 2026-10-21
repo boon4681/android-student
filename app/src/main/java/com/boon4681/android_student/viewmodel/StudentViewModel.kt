@@ -10,19 +10,28 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.boon4681.android_student.data.NetworkMonitor
 import com.boon4681.android_student.data.local.AppDatabase
+import com.boon4681.android_student.data.local.StudentEntity
 import com.boon4681.android_student.data.remote.RetrofitClient
 import com.boon4681.android_student.data.remote.StudentApi
 import com.boon4681.android_student.data.remote.TokenStorage
 import com.boon4681.android_student.data.repository.StudentRepository
-import com.boon4681.android_student.model.Student
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
 class StudentViewModel(
     private val repository: StudentRepository,
     networkMonitor: NetworkMonitor
 ) : ViewModel() {
-    var students by mutableStateOf(listOf<Student>())
-        private set
+    val students: StateFlow<List<StudentEntity>> =
+        repository.observeStudents()
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = emptyList()
+            )
 
     var isLoading by mutableStateOf(false)
         private set
@@ -36,38 +45,64 @@ class StudentViewModel(
     var query by mutableStateOf("")
         private set
 
-    val filteredStudents: List<Student>
-        get() {
-            val q = query.trim()
-            if (q.isEmpty()) return students
-            return students.filter {
-                it.studentCode.contains(q, ignoreCase = true) ||
-                    it.name.contains(q, ignoreCase = true) ||
-                    it.major.contains(q, ignoreCase = true)
-            }
-        }
+    var sessionExpired by mutableStateOf(false)
+        private set
 
     init {
         viewModelScope.launch {
             networkMonitor.isOnline.collect { isOnline = it }
         }
-        loadStudents()
+    }
+
+    fun onSessionExpiredHandled() {
+        sessionExpired = false
+    }
+
+    private fun showError(e: Exception, message: String) {
+        if (e is HttpException && e.code() == 401) {
+            sessionExpired = true
+        } else {
+            errorMessage = message
+        }
     }
 
     fun onQueryChange(value: String) {
         query = value
     }
 
-    fun findStudent(id: Int): Student? = students.find { it.id == id }
+    fun filterStudents(list: List<StudentEntity>): List<StudentEntity> {
+        val q = query.trim()
+        if (q.isEmpty()) return list
+        return list.filter {
+            it.studentCode.contains(q, ignoreCase = true) ||
+                it.name.contains(q, ignoreCase = true) ||
+                it.major.contains(q, ignoreCase = true)
+        }
+    }
 
     fun loadStudents() {
         viewModelScope.launch {
             isLoading = true
             errorMessage = null
             try {
-                students = repository.getStudents()
+                repository.refreshStudents()
             } catch (e: Exception) {
-                errorMessage = "ไม่สามารถโหลดข้อมูลได้"
+                showError(e, "เชื่อมต่อ Server ไม่ได้ แสดงข้อมูลในเครื่อง")
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
+    fun syncStudents() {
+        viewModelScope.launch {
+            isLoading = true
+            errorMessage = null
+            try {
+                repository.syncPending()
+                repository.refreshStudents()
+            } catch (e: Exception) {
+                showError(e, "Sync ไม่สำเร็จ ลองใหม่เมื่อเชื่อมต่อ Server ได้")
             } finally {
                 isLoading = false
             }
@@ -75,29 +110,26 @@ class StudentViewModel(
     }
 
     fun addStudent(studentCode: String, name: String, major: String) {
-        runAndReload {
+        viewModelScope.launch {
             repository.addStudent(
-                Student(studentCode = studentCode, name = name, major = major)
+                StudentEntity(studentCode = studentCode, name = name, major = major)
             )
         }
     }
 
-    fun updateStudent(student: Student) {
-        runAndReload { repository.updateStudent(student) }
+    fun updateStudent(student: StudentEntity) {
+        viewModelScope.launch {
+            repository.updateStudent(student)
+        }
     }
 
-    fun deleteStudent(student: Student) {
-        runAndReload { repository.deleteStudent(student) }
-    }
-
-    private fun runAndReload(action: suspend () -> Unit) {
+    fun deleteStudent(student: StudentEntity) {
         viewModelScope.launch {
             errorMessage = null
             try {
-                action()
-                students = repository.getLocalStudents()
+                repository.deleteStudent(student)
             } catch (e: Exception) {
-                errorMessage = "ไม่สามารถบันทึกข้อมูลได้"
+                showError(e, "ลบไม่สำเร็จ ต้องเชื่อมต่อ Server ก่อน")
             }
         }
     }

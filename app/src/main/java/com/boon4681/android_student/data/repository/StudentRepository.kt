@@ -1,60 +1,93 @@
 package com.boon4681.android_student.data.repository
 
 import com.boon4681.android_student.data.local.StudentDao
+import com.boon4681.android_student.data.local.StudentEntity
 import com.boon4681.android_student.data.remote.StudentApi
 import com.boon4681.android_student.data.remote.StudentCreateRequest
-import com.boon4681.android_student.data.remote.StudentDto
-import com.boon4681.android_student.model.Student
+import kotlinx.coroutines.flow.Flow
+import retrofit2.HttpException
 
 class StudentRepository(
     private val dao: StudentDao,
     private val api: StudentApi
 ) {
-    suspend fun getStudents(): List<Student> {
-        return try {
-            val remoteStudents = api.getStudents()
-            val localStudents = remoteStudents.map { toStudent(it) }
-            dao.deleteAll()
-            dao.insertAll(localStudents)
-            localStudents
-        } catch (e: Exception) {
-            dao.getAllStudents()
+    fun observeStudents(): Flow<List<StudentEntity>> {
+        return dao.observeStudents()
+    }
+
+    suspend fun refreshStudents() {
+        val remoteStudents = api.getStudents()
+        val pendingServerIds = dao.getPendingStudents().mapNotNull { it.serverId }
+
+        val syncedStudents = remoteStudents
+            .filter { it.id !in pendingServerIds }
+            .map {
+                StudentEntity(
+                    serverId = it.id,
+                    studentCode = it.student_code,
+                    name = it.name,
+                    major = it.major,
+                    syncStatus = "SYNCED"
+                )
+            }
+
+        dao.replaceSynced(syncedStudents)
+    }
+
+    suspend fun addStudent(student: StudentEntity) {
+        dao.insertStudent(
+            student.copy(
+                syncStatus = "PENDING",
+                updatedAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    suspend fun updateStudent(student: StudentEntity) {
+        dao.updateStudent(
+            student.copy(
+                syncStatus = "PENDING",
+                updatedAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    suspend fun deleteStudent(student: StudentEntity) {
+        if (student.serverId != null) {
+            api.deleteStudent(student.serverId)
         }
-    }
-
-    suspend fun getLocalStudents(): List<Student> {
-        return dao.getAllStudents()
-    }
-
-    suspend fun addStudent(student: Student) {
-        val created = api.createStudent(toRequest(student))
-        dao.insertStudent(toStudent(created))
-    }
-
-    suspend fun updateStudent(student: Student) {
-        val updated = api.updateStudent(student.id, toRequest(student))
-        dao.updateStudent(toStudent(updated))
-    }
-
-    suspend fun deleteStudent(student: Student) {
-        api.deleteStudent(student.id)
         dao.deleteStudent(student)
     }
 
-    private fun toStudent(dto: StudentDto): Student {
-        return Student(
-            id = dto.id,
-            studentCode = dto.student_code,
-            name = dto.name,
-            major = dto.major
-        )
-    }
+    suspend fun syncPending() {
+        val pending = dao.getPendingStudents()
 
-    private fun toRequest(student: Student): StudentCreateRequest {
-        return StudentCreateRequest(
-            student_code = student.studentCode,
-            name = student.name,
-            major = student.major
-        )
+        for (student in pending) {
+            val request = StudentCreateRequest(
+                student_code = student.studentCode,
+                name = student.name,
+                major = student.major
+            )
+
+            try {
+                val response = if (student.serverId == null) {
+                    api.createStudent(request)
+                } else {
+                    api.updateStudent(student.serverId, request)
+                }
+
+                dao.updateStudent(
+                    student.copy(
+                        serverId = response.id,
+                        syncStatus = "SYNCED"
+                    )
+                )
+            } catch (e: HttpException) {
+                if (e.code() == 401) {
+                    throw e
+                }
+                dao.updateStudent(student.copy(syncStatus = "FAILED"))
+            }
+        }
     }
 }

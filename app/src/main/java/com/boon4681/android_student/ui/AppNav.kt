@@ -15,6 +15,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -35,6 +37,18 @@ fun StudentApp(
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
+    val students by viewModel.students.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadStudents()
+    }
+
+    LaunchedEffect(viewModel.sessionExpired) {
+        if (viewModel.sessionExpired) {
+            viewModel.onSessionExpiredHandled()
+            onLogout()
+        }
+    }
 
     val title = when (currentRoute) {
         "add" -> "Add Student"
@@ -84,14 +98,15 @@ fun StudentApp(
         ) {
             composable("list") {
                 StudentScreen(
-                    students = viewModel.filteredStudents,
+                    students = viewModel.filterStudents(students),
                     query = viewModel.query,
                     isOnline = viewModel.isOnline,
                     isLoading = viewModel.isLoading,
                     errorMessage = viewModel.errorMessage,
                     onQueryChange = { viewModel.onQueryChange(it) },
                     onLoad = { viewModel.loadStudents() },
-                    onStudentClick = { navController.navigate("detail/${it.id}") },
+                    onSync = { viewModel.syncStudents() },
+                    onStudentClick = { navController.navigate("detail/${it.localId}") },
                     onDelete = { viewModel.deleteStudent(it) }
                 )
             }
@@ -109,7 +124,7 @@ fun StudentApp(
                 arguments = listOf(navArgument("id") { type = NavType.IntType })
             ) { entry ->
                 val id = entry.arguments?.getInt("id") ?: 0
-                val student = viewModel.findStudent(id)
+                val student = students.find { it.localId == id }
                 StudentDetailScreen(
                     student = student,
                     onEdit = { navController.navigate("edit/$id") },
@@ -124,7 +139,7 @@ fun StudentApp(
                 arguments = listOf(navArgument("id") { type = NavType.IntType })
             ) { entry ->
                 val id = entry.arguments?.getInt("id") ?: 0
-                val student = viewModel.findStudent(id)
+                val student = students.find { it.localId == id }
                 StudentFormScreen(
                     student = student,
                     onSave = { code, name, major ->

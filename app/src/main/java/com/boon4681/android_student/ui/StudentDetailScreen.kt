@@ -24,11 +24,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.boon4681.android_student.model.Student
+import com.boon4681.android_student.data.local.StudentEntity
 
 @Composable
 fun StudentDetailScreen(
-    student: Student?,
+    student: StudentEntity?,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
@@ -51,10 +51,12 @@ fun StudentDetailScreen(
     ) {
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
-                DetailRow("ID", student.id.toString())
+                DetailRow("Local ID", student.localId.toString())
+                DetailRow("Server ID", student.serverId?.toString() ?: "-")
                 DetailRow("Code", student.studentCode)
                 DetailRow("Name", student.name)
                 DetailRow("Major", student.major)
+                DetailRow("Sync", student.syncStatus)
             }
         }
 

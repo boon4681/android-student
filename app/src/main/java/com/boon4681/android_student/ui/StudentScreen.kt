@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -37,7 +38,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.boon4681.android_student.model.Student
+import com.boon4681.android_student.data.local.StudentEntity
 
 @Composable
 fun fieldColors() = TextFieldDefaults.colors(
@@ -49,15 +50,16 @@ fun fieldColors() = TextFieldDefaults.colors(
 
 @Composable
 fun StudentScreen(
-    students: List<Student>,
+    students: List<StudentEntity>,
     query: String,
     isOnline: Boolean,
     isLoading: Boolean,
     errorMessage: String?,
     onQueryChange: (String) -> Unit,
     onLoad: () -> Unit,
-    onStudentClick: (Student) -> Unit,
-    onDelete: (Student) -> Unit,
+    onSync: () -> Unit,
+    onStudentClick: (StudentEntity) -> Unit,
+    onDelete: (StudentEntity) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -71,8 +73,13 @@ fun StudentScreen(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             OnlineStatus(isOnline = isOnline)
-            IconButton(onClick = { onLoad() }) {
-                Icon(Icons.Default.Refresh, contentDescription = "Load Students")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Button(onClick = { onSync() }) {
+                    Text("Sync Now")
+                }
+                IconButton(onClick = { onLoad() }) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Load Students")
+                }
             }
         }
 
@@ -123,9 +130,9 @@ fun OnlineStatus(isOnline: Boolean, modifier: Modifier = Modifier) {
 
 @Composable
 fun StudentList(
-    students: List<Student>,
-    onStudentClick: (Student) -> Unit,
-    onDelete: (Student) -> Unit,
+    students: List<StudentEntity>,
+    onStudentClick: (StudentEntity) -> Unit,
+    onDelete: (StudentEntity) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (students.isEmpty()) {
@@ -135,7 +142,7 @@ fun StudentList(
         return
     }
     LazyColumn(modifier = modifier) {
-        items(students, key = { it.id }) { student ->
+        items(students, key = { it.localId }) { student ->
             StudentItem(
                 student = student,
                 onClick = { onStudentClick(student) },
@@ -148,7 +155,7 @@ fun StudentList(
 
 @Composable
 fun StudentItem(
-    student: Student,
+    student: StudentEntity,
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -169,6 +176,15 @@ fun StudentItem(
                     fontWeight = FontWeight.Bold
                 )
                 Text(student.major, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = "Sync: ${student.syncStatus}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = when (student.syncStatus) {
+                        "SYNCED" -> Color(0xFF2E7D32)
+                        "FAILED" -> MaterialTheme.colorScheme.error
+                        else -> Color(0xFFEF6C00)
+                    }
+                )
             }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Default.Delete, contentDescription = "Delete")
