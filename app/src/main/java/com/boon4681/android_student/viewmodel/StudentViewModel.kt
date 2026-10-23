@@ -8,12 +8,9 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.boon4681.android_student.StudentApplication
 import com.boon4681.android_student.data.NetworkMonitor
-import com.boon4681.android_student.data.local.AppDatabase
 import com.boon4681.android_student.data.local.StudentEntity
-import com.boon4681.android_student.data.remote.RetrofitClient
-import com.boon4681.android_student.data.remote.StudentApi
-import com.boon4681.android_student.data.remote.TokenStorage
 import com.boon4681.android_student.data.repository.StudentRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -137,12 +134,9 @@ class StudentViewModel(
     companion object {
         val Factory = viewModelFactory {
             initializer {
-                val app = this[APPLICATION_KEY]!!
+                val app = this[APPLICATION_KEY] as StudentApplication
                 StudentViewModel(
-                    repository = StudentRepository(
-                        dao = AppDatabase.getInstance(app).studentDao(),
-                        api = RetrofitClient.create(TokenStorage(app)).create(StudentApi::class.java)
-                    ),
+                    repository = app.appContainer.studentRepository,
                     networkMonitor = NetworkMonitor(app)
                 )
             }

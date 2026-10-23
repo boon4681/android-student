@@ -17,11 +17,13 @@ import com.boon4681.android_student.ui.StudentApp
 import com.boon4681.android_student.ui.login.LoginScreen
 import com.boon4681.android_student.ui.login.LoginViewModel
 import com.boon4681.android_student.ui.theme.AndroidstudentTheme
+import com.boon4681.android_student.worker.SyncScheduler
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        SyncScheduler.schedulePeriodicSync(this)
         val tokenStorage = TokenStorage(this)
         setContent {
             AndroidstudentTheme {

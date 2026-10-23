@@ -4,6 +4,7 @@ import com.boon4681.android_student.data.local.StudentDao
 import com.boon4681.android_student.data.local.StudentEntity
 import com.boon4681.android_student.data.remote.StudentApi
 import com.boon4681.android_student.data.remote.StudentCreateRequest
+import android.util.Log
 import kotlinx.coroutines.flow.Flow
 import retrofit2.HttpException
 
@@ -61,6 +62,7 @@ class StudentRepository(
 
     suspend fun syncPending() {
         val pending = dao.getPendingStudents()
+        Log.d("StudentRepository", "syncPending: ${pending.size} pending student(s)")
 
         for (student in pending) {
             val request = StudentCreateRequest(
@@ -82,6 +84,7 @@ class StudentRepository(
                         syncStatus = "SYNCED"
                     )
                 )
+                Log.d("StudentRepository", "Synced ${student.studentCode} -> serverId ${response.id}")
             } catch (e: HttpException) {
                 if (e.code() == 401) {
                     throw e

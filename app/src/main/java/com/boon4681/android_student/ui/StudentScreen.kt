@@ -28,6 +28,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -36,9 +37,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.boon4681.android_student.data.local.StudentEntity
+import com.boon4681.android_student.worker.SyncScheduler
 
 @Composable
 fun fieldColors() = TextFieldDefaults.colors(
@@ -62,6 +65,8 @@ fun StudentScreen(
     onDelete: (StudentEntity) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -82,6 +87,15 @@ fun StudentScreen(
                 }
             }
         }
+
+        OutlinedButton(
+            onClick = { SyncScheduler.syncNow(context) },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Sync in Background")
+        }
+
+        Spacer(Modifier.height(8.dp))
 
         TextField(
             value = query,
