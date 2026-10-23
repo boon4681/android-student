@@ -19,7 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -32,7 +32,7 @@ import com.boon4681.android_student.viewmodel.StudentViewModel
 @Composable
 fun StudentApp(
     onLogout: () -> Unit,
-    viewModel: StudentViewModel = viewModel(factory = StudentViewModel.Factory)
+    viewModel: StudentViewModel = hiltViewModel()
 ) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -106,7 +106,7 @@ fun StudentApp(
                     onQueryChange = { viewModel.onQueryChange(it) },
                     onLoad = { viewModel.loadStudents() },
                     onSync = { viewModel.syncStudents() },
-                    onStudentClick = { navController.navigate("detail/${it.localId}") },
+                    onStudentClick = { navController.navigate("detail/${it.id}") },
                     onDelete = { viewModel.deleteStudent(it) }
                 )
             }
@@ -124,7 +124,7 @@ fun StudentApp(
                 arguments = listOf(navArgument("id") { type = NavType.IntType })
             ) { entry ->
                 val id = entry.arguments?.getInt("id") ?: 0
-                val student = students.find { it.localId == id }
+                val student = students.find { it.id == id }
                 StudentDetailScreen(
                     student = student,
                     onEdit = { navController.navigate("edit/$id") },
@@ -139,7 +139,7 @@ fun StudentApp(
                 arguments = listOf(navArgument("id") { type = NavType.IntType })
             ) { entry ->
                 val id = entry.arguments?.getInt("id") ?: 0
-                val student = students.find { it.localId == id }
+                val student = students.find { it.id == id }
                 StudentFormScreen(
                     student = student,
                     onSave = { code, name, major ->

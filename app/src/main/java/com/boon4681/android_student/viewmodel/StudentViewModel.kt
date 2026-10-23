@@ -4,26 +4,35 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
-import com.boon4681.android_student.StudentApplication
-import com.boon4681.android_student.data.NetworkMonitor
-import com.boon4681.android_student.data.local.StudentEntity
-import com.boon4681.android_student.data.repository.StudentRepository
+import com.boon4681.android_student.domain.model.SessionExpiredException
+import com.boon4681.android_student.domain.model.Student
+import com.boon4681.android_student.domain.repository.NetworkMonitor
+import com.boon4681.android_student.domain.usecase.AddStudentUseCase
+import com.boon4681.android_student.domain.usecase.DeleteStudentUseCase
+import com.boon4681.android_student.domain.usecase.GetStudentsUseCase
+import com.boon4681.android_student.domain.usecase.RefreshStudentsUseCase
+import com.boon4681.android_student.domain.usecase.SyncStudentsUseCase
+import com.boon4681.android_student.domain.usecase.UpdateStudentUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import retrofit2.HttpException
+import javax.inject.Inject
 
-class StudentViewModel(
-    private val repository: StudentRepository,
+@HiltViewModel
+class StudentViewModel @Inject constructor(
+    getStudentsUseCase: GetStudentsUseCase,
+    private val refreshStudentsUseCase: RefreshStudentsUseCase,
+    private val syncStudentsUseCase: SyncStudentsUseCase,
+    private val addStudentUseCase: AddStudentUseCase,
+    private val updateStudentUseCase: UpdateStudentUseCase,
+    private val deleteStudentUseCase: DeleteStudentUseCase,
     networkMonitor: NetworkMonitor
 ) : ViewModel() {
-    val students: StateFlow<List<StudentEntity>> =
-        repository.observeStudents()
+    val students: StateFlow<List<Student>> =
+        getStudentsUseCase()
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5000),
@@ -56,7 +65,7 @@ class StudentViewModel(
     }
 
     private fun showError(e: Exception, message: String) {
-        if (e is HttpException && e.code() == 401) {
+        if (e is SessionExpiredException) {
             sessionExpired = true
         } else {
             errorMessage = message
@@ -67,7 +76,7 @@ class StudentViewModel(
         query = value
     }
 
-    fun filterStudents(list: List<StudentEntity>): List<StudentEntity> {
+    fun filterStudents(list: List<Student>): List<Student> {
         val q = query.trim()
         if (q.isEmpty()) return list
         return list.filter {
@@ -82,7 +91,7 @@ class StudentViewModel(
             isLoading = true
             errorMessage = null
             try {
-                repository.refreshStudents()
+                refreshStudentsUseCase()
             } catch (e: Exception) {
                 showError(e, "เชื่อมต่อ Server ไม่ได้ แสดงข้อมูลในเครื่อง")
             } finally {
@@ -96,8 +105,8 @@ class StudentViewModel(
             isLoading = true
             errorMessage = null
             try {
-                repository.syncPending()
-                repository.refreshStudents()
+                syncStudentsUseCase()
+                refreshStudentsUseCase()
             } catch (e: Exception) {
                 showError(e, "Sync ไม่สำเร็จ ลองใหม่เมื่อเชื่อมต่อ Server ได้")
             } finally {
@@ -108,37 +117,28 @@ class StudentViewModel(
 
     fun addStudent(studentCode: String, name: String, major: String) {
         viewModelScope.launch {
-            repository.addStudent(
-                StudentEntity(studentCode = studentCode, name = name, major = major)
-            )
-        }
-    }
-
-    fun updateStudent(student: StudentEntity) {
-        viewModelScope.launch {
-            repository.updateStudent(student)
-        }
-    }
-
-    fun deleteStudent(student: StudentEntity) {
-        viewModelScope.launch {
             errorMessage = null
             try {
-                repository.deleteStudent(student)
-            } catch (e: Exception) {
-                showError(e, "ลบไม่สำเร็จ ต้องเชื่อมต่อ Server ก่อน")
+                addStudentUseCase(studentCode, name, major)
+            } catch (e: IllegalArgumentException) {
+                errorMessage = e.message
             }
         }
     }
 
-    companion object {
-        val Factory = viewModelFactory {
-            initializer {
-                val app = this[APPLICATION_KEY] as StudentApplication
-                StudentViewModel(
-                    repository = app.appContainer.studentRepository,
-                    networkMonitor = NetworkMonitor(app)
-                )
+    fun updateStudent(student: Student) {
+        viewModelScope.launch {
+            updateStudentUseCase(student)
+        }
+    }
+
+    fun deleteStudent(student: Student) {
+        viewModelScope.launch {
+            errorMessage = null
+            try {
+                deleteStudentUseCase(student)
+            } catch (e: Exception) {
+                showError(e, "ลบไม่สำเร็จ ต้องเชื่อมต่อ Server ก่อน")
             }
         }
     }

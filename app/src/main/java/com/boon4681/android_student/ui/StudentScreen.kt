@@ -40,7 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.boon4681.android_student.data.local.StudentEntity
+import com.boon4681.android_student.domain.model.Student
 import com.boon4681.android_student.worker.SyncScheduler
 
 @Composable
@@ -53,7 +53,7 @@ fun fieldColors() = TextFieldDefaults.colors(
 
 @Composable
 fun StudentScreen(
-    students: List<StudentEntity>,
+    students: List<Student>,
     query: String,
     isOnline: Boolean,
     isLoading: Boolean,
@@ -61,8 +61,8 @@ fun StudentScreen(
     onQueryChange: (String) -> Unit,
     onLoad: () -> Unit,
     onSync: () -> Unit,
-    onStudentClick: (StudentEntity) -> Unit,
-    onDelete: (StudentEntity) -> Unit,
+    onStudentClick: (Student) -> Unit,
+    onDelete: (Student) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -144,9 +144,9 @@ fun OnlineStatus(isOnline: Boolean, modifier: Modifier = Modifier) {
 
 @Composable
 fun StudentList(
-    students: List<StudentEntity>,
-    onStudentClick: (StudentEntity) -> Unit,
-    onDelete: (StudentEntity) -> Unit,
+    students: List<Student>,
+    onStudentClick: (Student) -> Unit,
+    onDelete: (Student) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (students.isEmpty()) {
@@ -156,7 +156,7 @@ fun StudentList(
         return
     }
     LazyColumn(modifier = modifier) {
-        items(students, key = { it.localId }) { student ->
+        items(students, key = { it.id }) { student ->
             StudentItem(
                 student = student,
                 onClick = { onStudentClick(student) },
@@ -169,7 +169,7 @@ fun StudentList(
 
 @Composable
 fun StudentItem(
-    student: StudentEntity,
+    student: Student,
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {

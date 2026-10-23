@@ -2,24 +2,26 @@ package com.boon4681.android_student.worker
 
 import android.content.Context
 import android.util.Log
+import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.boon4681.android_student.StudentApplication
+import com.boon4681.android_student.domain.usecase.SyncStudentsUseCase
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
 import java.io.IOException
 
-class SyncWorker(
-    appContext: Context,
-    workerParams: WorkerParameters
+@HiltWorker
+class SyncWorker @AssistedInject constructor(
+    @Assisted appContext: Context,
+    @Assisted workerParams: WorkerParameters,
+    private val syncStudentsUseCase: SyncStudentsUseCase
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
-        Log.d(TAG, "doWork started (attempt ${runAttemptCount + 1})")
+        Log.d(TAG, "doWork started (attempt ${runAttemptCount + 1}), SyncStudentsUseCase injected by Hilt")
 
         return try {
-            val app = applicationContext as StudentApplication
-            app.appContainer
-                .studentRepository
-                .syncPending()
+            syncStudentsUseCase()
 
             Log.d(TAG, "Sync success")
             Result.success()

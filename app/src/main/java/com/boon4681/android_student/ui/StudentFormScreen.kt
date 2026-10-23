@@ -25,11 +25,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.boon4681.android_student.data.local.StudentEntity
+import com.boon4681.android_student.domain.model.Student
 
 @Composable
 fun StudentFormScreen(
-    student: StudentEntity?,
+    student: Student?,
     onSave: (studentCode: String, name: String, major: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
