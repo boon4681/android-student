@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.boon4681.android_student.domain.model.SessionExpiredException
 import com.boon4681.android_student.domain.model.Student
 import com.boon4681.android_student.domain.repository.NetworkMonitor
+import com.boon4681.android_student.domain.repository.SyncRequester
 import com.boon4681.android_student.domain.usecase.AddStudentUseCase
 import com.boon4681.android_student.domain.usecase.DeleteStudentUseCase
 import com.boon4681.android_student.domain.usecase.GetStudentsUseCase
@@ -29,7 +30,8 @@ class StudentViewModel @Inject constructor(
     private val addStudentUseCase: AddStudentUseCase,
     private val updateStudentUseCase: UpdateStudentUseCase,
     private val deleteStudentUseCase: DeleteStudentUseCase,
-    networkMonitor: NetworkMonitor
+    networkMonitor: NetworkMonitor,
+    private val syncRequester: SyncRequester
 ) : ViewModel() {
     val students: StateFlow<List<Student>> =
         getStudentsUseCase()
@@ -120,6 +122,7 @@ class StudentViewModel @Inject constructor(
             errorMessage = null
             try {
                 addStudentUseCase(studentCode, name, major)
+                syncRequester.requestSync()
             } catch (e: IllegalArgumentException) {
                 errorMessage = e.message
             }
@@ -129,6 +132,7 @@ class StudentViewModel @Inject constructor(
     fun updateStudent(student: Student) {
         viewModelScope.launch {
             updateStudentUseCase(student)
+            syncRequester.requestSync()
         }
     }
 

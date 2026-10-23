@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
@@ -23,7 +24,11 @@ object SyncScheduler {
                 .build()
 
         WorkManager.getInstance(context)
-            .enqueue(request)
+            .enqueueUniqueWork(
+                "student-sync-now",
+                ExistingWorkPolicy.APPEND_OR_REPLACE,
+                request
+            )
 
         Log.d(SyncWorker.TAG, "One-time sync enqueued: ${request.id}")
     }

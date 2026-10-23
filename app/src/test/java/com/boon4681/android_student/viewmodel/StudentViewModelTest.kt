@@ -9,6 +9,7 @@ import com.boon4681.android_student.domain.usecase.SyncStudentsUseCase
 import com.boon4681.android_student.domain.usecase.UpdateStudentUseCase
 import com.boon4681.android_student.fake.FakeNetworkMonitor
 import com.boon4681.android_student.fake.FakeStudentRepository
+import com.boon4681.android_student.fake.FakeSyncRequester
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -40,6 +41,8 @@ class StudentViewModelTest {
         Dispatchers.resetMain()
     }
 
+    private val syncRequester = FakeSyncRequester()
+
     private fun createViewModel(
         repository: FakeStudentRepository,
         networkMonitor: FakeNetworkMonitor = FakeNetworkMonitor()
@@ -51,8 +54,32 @@ class StudentViewModelTest {
             addStudentUseCase = AddStudentUseCase(repository),
             updateStudentUseCase = UpdateStudentUseCase(repository),
             deleteStudentUseCase = DeleteStudentUseCase(repository),
-            networkMonitor = networkMonitor
+            networkMonitor = networkMonitor,
+            syncRequester = syncRequester
         )
+    }
+
+    @Test
+    fun `adding a student requests background sync after saving`() = runTest {
+        val repository = FakeStudentRepository(initial = emptyList())
+        val viewModel = createViewModel(repository)
+
+        viewModel.addStudent("66007002", "Offline Add", "CS")
+
+        assertEquals(1, repository.students.value.size)
+        assertEquals(1, syncRequester.requests)
+    }
+
+    @Test
+    fun `invalid student is not saved and does not request sync`() = runTest {
+        val repository = FakeStudentRepository(initial = emptyList())
+        val viewModel = createViewModel(repository)
+
+        viewModel.addStudent("66007002", "", "CS")
+
+        assertEquals(0, repository.students.value.size)
+        assertEquals(0, syncRequester.requests)
+        assertEquals("Name is required", viewModel.errorMessage)
     }
 
     @Test
